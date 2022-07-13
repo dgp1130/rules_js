@@ -1,10 +1,18 @@
 "npm_link_package rule"
 
 load("@aspect_bazel_lib//lib:copy_directory.bzl", "copy_directory_action")
+load("@aspect_bazel_lib//lib:paths.bzl", "relative_file")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_nodejs//nodejs:providers.bzl", "DeclarationInfo", "declaration_info")
 load(":utils.bzl", "utils")
 load(":npm_package.bzl", "NpmPackageInfo")
+
+################################################################################
+# WIP: turn on/off usages of ctx.actions.declare_symlink
+declare_symlink_1 = True
+declare_symlink_2 = True
+declare_symlink_3 = True
+################################################################################
 
 _StoreInfo = provider(
     doc = "Internal use only",
@@ -208,19 +216,26 @@ def _impl_store(ctx):
 deps of npm_link_package_store must be in the same package.""" % (ctx.label.package, dep[_StoreInfo].root_package)
                 fail(msg)
             dep_package = dep[_StoreInfo].package
-            dep_version = dep[_StoreInfo].version
             dep_aliases = _dep_aliases.split(",") if _dep_aliases else [dep_package]
             dep_virtual_store_directory = dep[_StoreInfo].virtual_store_directory
             if dep_virtual_store_directory:
                 for dep_alias in dep_aliases:
                     # "node_modules/{virtual_store_root}/{virtual_store_name}/node_modules/{package}"
                     dep_symlink_path = paths.join("node_modules", utils.virtual_store_root, virtual_store_name, "node_modules", dep_alias)
-                    dep_symlink = ctx.actions.declare_file(dep_symlink_path)
-                    ctx.actions.symlink(
-                        output = dep_symlink,
-                        target_file = dep_virtual_store_directory,
-                    )
+                    if declare_symlink_1:
+                        dep_symlink = ctx.actions.declare_symlink(dep_symlink_path)
+                        ctx.actions.symlink(
+                            output = dep_symlink,
+                            target_path = relative_file(dep_virtual_store_directory.path, dep_symlink.path),
+                        )
+                    else:
+                        dep_symlink = ctx.actions.declare_file(dep_symlink_path)
+                        ctx.actions.symlink(
+                            output = dep_symlink,
+                            target_file = dep_virtual_store_directory,
+                        )
                     direct_files.append(dep_symlink)
+                    direct_files.append(dep_virtual_store_directory)
             else:
                 # this is a ref npm_link_package, a downstream terminal npm_link_package
                 # for this npm depedency will create the dep symlinks for this dep;
@@ -267,12 +282,20 @@ deps of npm_link_package_store must be in the same package.""" % (ctx.label.pack
                         for dep_ref_dep_alias in dep_ref_dep_aliases:
                             # "node_modules/{virtual_store_root}/{virtual_store_name}/node_modules/{package}"
                             dep_ref_dep_symlink_path = paths.join("node_modules", utils.virtual_store_root, dep_virtual_store_name, "node_modules", dep_ref_dep_alias)
-                            dep_ref_dep_symlink = ctx.actions.declare_file(dep_ref_dep_symlink_path)
-                            ctx.actions.symlink(
-                                output = dep_ref_dep_symlink,
-                                target_file = dep_ref_def_virtual_store_directory,
-                            )
+                            if declare_symlink_2:
+                                dep_ref_dep_symlink = ctx.actions.declare_symlink(dep_ref_dep_symlink_path)
+                                ctx.actions.symlink(
+                                    output = dep_ref_dep_symlink,
+                                    target_path = relative_file(dep_ref_def_virtual_store_directory.path, dep_ref_dep_symlink.path),
+                                )
+                            else:
+                                dep_ref_dep_symlink = ctx.actions.declare_file(dep_ref_dep_symlink_path)
+                                ctx.actions.symlink(
+                                    output = dep_ref_dep_symlink,
+                                    target_file = dep_ref_def_virtual_store_directory,
+                                )
                             direct_files.append(dep_ref_dep_symlink)
+                            direct_files.append(dep_ref_def_virtual_store_directory)
 
     direct_files = depset(direct = direct_files)
     files_depsets = [direct_files]
@@ -315,14 +338,24 @@ def _impl_direct(ctx):
 
     # symlink the package's path in the virtual store to the root of the node_modules
     # as a direct dependency
-    root_symlink = ctx.actions.declare_file(
-        # "node_modules/{package}"
-        paths.join("node_modules", package),
-    )
-    ctx.actions.symlink(
-        output = root_symlink,
-        target_file = virtual_store_directory,
-    )
+    if declare_symlink_3:
+        root_symlink = ctx.actions.declare_symlink(
+            # "node_modules/{package}"
+            paths.join("node_modules", package),
+        )
+        ctx.actions.symlink(
+            output = root_symlink,
+            target_path = relative_file(virtual_store_directory.path, root_symlink.path),
+        )
+    else:
+        root_symlink = ctx.actions.declare_file(
+            # "node_modules/{package}"
+            paths.join("node_modules", package),
+        )
+        ctx.actions.symlink(
+            output = root_symlink,
+            target_file = virtual_store_directory,
+        )
 
     result = [
         DefaultInfo(
