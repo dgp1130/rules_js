@@ -44,5 +44,8 @@ jobs:
                   XDG_CACHE_HOME: ~/.cache/bazel-repo
               working-directory: ${{ matrix.folder }}
               run: |
-                  bazel --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc --bazelrc=.bazelrc test //...
-                  ls $(bazel info output_base)/external | grep -v __links | grep -vz unused
+                  wget https://github.com/aspect-build/bazel/releases/download/6.0.0-pre.20220630.1-symlink_2/bazel-6.0.0-pre.20220630.1-x86_64-linux
+                  chmod +x bazel-6.0.0-pre.20220630.1-x86_64-linux
+                  ./bazel-6.0.0-pre.20220630.1-x86_64-linux version
+                  ./bazel-6.0.0-pre.20220630.1-x86_64-linux --bazelrc=$GITHUB_WORKSPACE/.github/workflows/ci.bazelrc --bazelrc=.bazelrc test //...
+                  ls $(./bazel-6.0.0-pre.20220630.1-x86_64-linux info output_base)/external | grep -v __links | grep -vz unused
