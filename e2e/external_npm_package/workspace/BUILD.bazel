@@ -1,0 +1,28 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary", "js_run_binary")
+load("@aspect_rules_js//npm:defs.bzl", "npm_link_package")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+npm_link_package(
+    name = "node_modules/external-npm-package",
+    src = "@external_npm_package//:pkg",
+)
+
+js_binary(
+    name = "binary",
+    entry_point = "binary.js",
+    data = [
+        "binary.js",
+        "//:node_modules/external-npm-package",
+    ],
+)
+
+js_run_binary(
+    name = "generate",
+    stdout = "out.txt",
+    tool = ":binary",
+)
+
+build_test(
+    name = "test",
+    targets = [":generate"],
+)
